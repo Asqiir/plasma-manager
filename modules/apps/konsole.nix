@@ -130,8 +130,8 @@ in
     };
 
     extraConfig = lib.mkOption {
-      type = with lib.types; nullOr (attrsOf (attrsOf basicSettingsType));
-      default = null;
+      type = with lib.types; attrsOf (attrsOf basicSettingsType);
+      default = { };
       description = ''
         Extra config to add to the `konsolerc`.
       '';
@@ -143,11 +143,9 @@ in
       (lib.mkIf (cfg.defaultProfile != null) {
         "Desktop Entry"."DefaultProfile" = "${cfg.defaultProfile}.profile";
       })
-      (lib.mkIf (cfg.extraConfig != null) (
-        lib.mapAttrs (
-          groupName: groupAttrs: (lib.mapAttrs (keyName: keyAttrs: { value = keyAttrs; }) groupAttrs)
-        ) cfg.extraConfig
-      ))
+      (lib.mapAttrs (
+        groupName: (lib.mapAttrs (keyName: keyAttrs: { value = keyAttrs; }))
+      ) cfg.extraConfig)
       {
         "UiSettings"."ColorScheme" = lib.mkIf (cfg.ui.colorScheme != null) {
           value = cfg.ui.colorScheme;
@@ -160,42 +158,40 @@ in
 
     xdg.dataFile = lib.mkMerge [
       (lib.mkIf (cfg.profiles != { }) (
-        lib.mkMerge [
-          (lib.mkMerge (
-            lib.mapAttrsToList (
-              attrName: profile:
-              let
-                # Use the name from the name option if it's set
-                profileName = if builtins.isString profile.name then profile.name else attrName;
-                fontString = lib.mkIf (
-                  profile.font.name != null
-                ) "${profile.font.name},${builtins.toString profile.font.size}";
-              in
-              {
-                "konsole/${profileName}.profile".text = lib.generators.toINI { } (
-                  lib.recursiveUpdate {
-                    "General" = (
-                      {
-                        "Name" = profileName;
-                        # Konsole generated profiles seem to always have this
-                        "Parent" = "FALLBACK/";
-                      }
-                      // (lib.optionalAttrs (profile.command != null) { "Command" = profile.command; })
-                    );
-                    "Appearance" = (
-                      {
-                        # If the font size is not set we leave a comma at the end after the name
-                        # We should fix this probs but konsole doesn't seem to care ¯\_(ツ)_/¯
-                        "Font" = fontString.content;
-                      }
-                      // (lib.optionalAttrs (profile.colorScheme != null) { "ColorScheme" = profile.colorScheme; })
-                    );
-                  } profile.extraConfig
-                );
-              }
-            ) cfg.profiles
-          ))
-        ]
+        lib.mkMerge (
+          lib.mapAttrsToList (
+            attrName: profile:
+            let
+              # Use the name from the name option if it's set
+              profileName = if builtins.isString profile.name then profile.name else attrName;
+              fontString = lib.mkIf (
+                profile.font.name != null
+              ) "${profile.font.name},${builtins.toString profile.font.size}";
+            in
+            {
+              "konsole/${profileName}.profile".text = lib.generators.toINI { } (
+                lib.recursiveUpdate {
+                  "General" = (
+                    {
+                      "Name" = profileName;
+                      # Konsole generated profiles seem to always have this
+                      "Parent" = "FALLBACK/";
+                    }
+                    // (lib.optionalAttrs (profile.command != null) { "Command" = profile.command; })
+                  );
+                  "Appearance" = (
+                    {
+                      # If the font size is not set we leave a comma at the end after the name
+                      # We should fix this probs but konsole doesn't seem to care ¯\_(ツ)_/¯
+                      "Font" = fontString.content;
+                    }
+                    // (lib.optionalAttrs (profile.colorScheme != null) { "ColorScheme" = profile.colorScheme; })
+                  );
+                } profile.extraConfig
+              );
+            }
+          ) cfg.profiles
+        )
       ))
       (createColorSchemes cfg.customColorSchemes)
     ];

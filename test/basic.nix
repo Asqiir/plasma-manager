@@ -54,10 +54,14 @@ testers.nixosTest {
       isNormalUser = true;
     };
 
+    services.desktopManager.plasma6.enable = true;
+
+
     home-manager.users.fake =
       { lib, ... }:
       {
         home.stateVersion = "23.11";
+        systemd.user.startServices = true; # starts userservices
         imports = [ plasma-module ];
         programs.plasma = {
           enable = true;
@@ -93,9 +97,9 @@ testers.nixosTest {
 
   testScript = ''
     # Boot:
-    start_all()
-    machine.wait_for_unit("multi-user.target")
-    machine.wait_for_unit("home-manager-fake.service")
+    machine.start()
+
+    machine.wait_for_unit("default.target")
 
     # Run tests:
     machine.succeed("test -e /home/fake/.config/kdeglobals")
